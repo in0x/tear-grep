@@ -47,7 +47,7 @@ impl App {
 
             if search_res.inner.changed() {
                 let search_dir = if self.dir_text.is_empty() {
-                    "./".to_string()
+                    ".".to_string()
                 } else { 
                     self.dir_text.clone() 
                 };
@@ -68,7 +68,7 @@ impl App {
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for line in &self.output_lines {
-                    ui.label(line);
+                    ui.selectable_label(false, line);
                     ui.separator();
                 }
             });
