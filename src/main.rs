@@ -2,6 +2,8 @@ use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use epi::App;
 use winit::{event_loop, event_loop::{EventLoop}, window, event::{self, WindowEvent}};
 
+pub mod tear_app;
+
 enum Event {
     RequestRedraw,
 }
@@ -82,7 +84,8 @@ fn main() {
 
     let mut egui_renderpass = RenderPass::new(&device, surface_fmt, 1);
 
-    let mut demo_app = egui_demo_lib::WrapApp::default();
+    // let mut demo_app = egui_demo_lib::WrapApp::default();
+    let mut demo_app = tear_app::App::new();
 
     let mut start_time = std::time::Instant::now();
     let mut last_frame_time : Option<f32> = None;
