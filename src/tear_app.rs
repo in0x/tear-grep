@@ -1,4 +1,4 @@
-use std::{process::{Command, Stdio}, io::{Read, BufReader, BufRead}, os::unix::prelude::AsRawFd};
+use std::{process::{Command, Stdio}, io::{Read, BufReader, BufRead}};
 
 #[derive(Default)]
 pub struct App {
@@ -54,16 +54,21 @@ impl App {
 
                 let mut rg_out = Command::new("rg")
                 .stdout(Stdio::piped())
-                .args([self.search_text.clone()])
+                .arg(self.search_text.clone())
+                // .arg("--pretty")
+                .arg("--vimgrep")
                 .current_dir(search_dir)
                 .spawn().unwrap()
                 .stdout.unwrap();
     
                 let reader = BufReader::new(rg_out);
-        
                 self.output_lines = BufRead::lines(reader)
                     .filter_map(|line| line.ok())
                     .collect();
+
+                // let mut out_str = String::new();
+                // rg_out.read_to_string(&mut out_str);
+                // self.output_lines.push(out_str);
             }
 
             egui::ScrollArea::vertical().show(ui, |ui| {
