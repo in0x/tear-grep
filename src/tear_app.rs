@@ -1,4 +1,9 @@
-use std::{process::{Command, Stdio}, io::{Read}};
+use std::{process::{Command, Stdio}, io::{Read}, path::Path};
+
+// https://github.com/jan-warchol/selenized/blob/master/the-values.md
+const TG_RED :    egui::Color32 = egui::Color32::from_rgb(250,  87,  80);
+const TG_GREEN :  egui::Color32 = egui::Color32::from_rgb(117, 185,  56);
+const TG_MAGENTA: egui::Color32 = egui::Color32::from_rgb(242, 117, 190);
 
 #[derive(Default)]
 pub struct App {
@@ -101,11 +106,11 @@ fn parse_and_layout_text(text_to_parse: &str) -> egui::text::LayoutJob {
 
     fn get_color(escape_code: Option<i32>) -> egui::Color32 {
         match escape_code {
-            Some(31) => egui::Color32::from_rgb(250,  87,  80), // Lines
-            Some(32) => egui::Color32::from_rgb(117, 185,  56), // Matches
-            Some(35) => egui::Color32::from_rgb(242, 117, 190), // Files Names
-            None => egui::Color32::GRAY,                        // Text
-            _ => egui::Color32::DEBUG_COLOR,                    // Unknown colors
+            Some(31) => TG_RED,              // Matches
+            Some(32) => TG_GREEN,            // Lines
+            Some(35) => TG_MAGENTA,          // Files Names
+            None => egui::Color32::GRAY,     // Text
+            _ => egui::Color32::DEBUG_COLOR, // Unknown colors
         }
     }
 
@@ -142,6 +147,10 @@ impl App {
             });
         });
 
+        fn is_dir_valid(dir: &str) -> bool {
+            Path::is_dir(Path::new(dir)) || dir.is_empty()
+        }
+
         egui::CentralPanel::default().show(ctx, |ui| {
             let search_res = ui.horizontal(|ui| {
                 let res = ui.text_edit_singleline(&mut self.search_text);
@@ -153,24 +162,48 @@ impl App {
             ui.horizontal(|ui| {
                 let res = ui.text_edit_singleline(&mut self.dir_text);
                 ui.separator();
-                ui.label("Search Directory");
+
+                if is_dir_valid(&self.dir_text) {
+                    ui.label("Search Directory");
+                }
+                else {
+                    let mut layout_job = egui::text::LayoutJob::default();
+                    layout_job.append(
+                        "Search Directory (Invalid)", 
+                        0.0, 
+                        egui::text::TextFormat {
+                            color: TG_RED,
+                            background: egui::Color32::TRANSPARENT,
+                            italics: true,
+                            ..Default::default()
+                        }
+                    );
+
+                    ui.label(layout_job);
+                }
+
                 res
             });
 
             // emoji test 🍳🍳🍳🦝🦝🦝 !!
 
-            if search_res.inner.changed() && !self.search_text.is_empty() {
-                let search_dir = if self.dir_text.is_empty() {
-                    ".".to_string()
-                } else { 
-                    self.dir_text.clone() 
+            let mut run_search = search_res.inner.changed();
+            run_search &= !self.search_text.is_empty(); 
+            run_search &= is_dir_valid(&self.dir_text);
+
+            if run_search {
+                let search_dir = if !self.dir_text.is_empty() {
+                    &self.dir_text
+                } 
+                else {
+                    "."
                 };
 
                 let mut rg_proc = Command::new("rg")
                     .stdout(Stdio::piped())
+                    .current_dir(search_dir)
                     .arg(self.search_text.clone())
                     .arg("--pretty")
-                    .current_dir(search_dir)
                     .spawn().unwrap();
 
                 rg_proc.try_wait();
