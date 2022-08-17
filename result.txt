@@ -1,4 +1,0 @@
-[0m[35msrc/tear_app.rs[0m
-[0m[32m22[0m:            .arg("[0m[1m[31msearch_res[0m")
-[0m[32m62[0m:            let [0m[1m[31msearch_res[0m = ui.horizontal(|ui| {
-[0m[32m78[0m:            // if [0m[1m[31msearch_res[0m.inner.changed() {
