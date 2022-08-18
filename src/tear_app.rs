@@ -9,6 +9,8 @@ const TG_MAGENTA: egui::Color32 = egui::Color32::from_rgb(242, 117, 190);
 pub struct App {
     is_open: bool,
 
+    has_rg_installed: Option<bool>,
+
     search_text: String,
 
     dir_text: String,
@@ -169,22 +171,57 @@ fn parse_and_layout_text(text_to_parse: &str) -> Vec<egui::text::LayoutJob> {
     all_layouts
 }
 
+fn detect_rg_install() -> bool {
+    let mut spawn_result = Command::new("rg")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn();
+
+    match spawn_result {
+        Ok(_) => true,
+        Err(_) => false
+    }
+}
+
 impl App {
     pub fn new() -> App {
         Default::default()
+    }
+
+    pub fn render_help(ctx: &egui::Context, frame: &epi::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing.x = 3.0;
+                ui.label("You are missing some required software! tear-grep requires ripgrep to be installed to work. Please follow the instructions");
+                ui.hyperlink_to("on ripgrep's github to", "https://github.com/BurntSushi/ripgrep#installation/");
+                ui.label("install the software. Make sure the 'rg' command works, then restart this program.");
+            });
+        });
     }
 
     pub fn update(&mut self, ctx: &egui::Context, frame: &epi::Frame) {
         egui::TopBottomPanel::top("wrap_app_top_bar").show(ctx, |ui| {
             // egui::trace!(ui);
             // self.bar_contents(ui, frame);
-
+            
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("Settings", |ui| {
                     ui.button("minecraft steve");
                 });
             });
         });
+
+        match self.has_rg_installed {
+            None => {
+                self.has_rg_installed = Some(detect_rg_install());
+                return;
+            },
+            Some(false) => { // user doesnt have ripgrep, installed, disable controls and show them help instead
+                App::render_help(ctx, frame);
+                return;
+            }
+            Some(true) => (), // all good, user has what we need to run with.
+        }
 
         fn is_dir_valid(dir: &str) -> bool {
             Path::is_dir(Path::new(dir)) || dir.is_empty()
