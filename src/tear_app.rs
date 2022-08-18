@@ -204,6 +204,7 @@ impl App {
                     .current_dir(search_dir)
                     .arg(self.search_text.clone())
                     .arg("--pretty")
+                    .arg("--threads").arg("8")
                     .spawn().unwrap();
 
                 rg_proc.try_wait();
