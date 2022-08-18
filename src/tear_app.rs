@@ -13,20 +13,22 @@ pub struct App {
 
     dir_text: String,
 
-    result_layout: egui::text::LayoutJob,
+    result_layout: Vec<egui::text::LayoutJob>,
 }
 
-fn parse_and_layout_text(text_to_parse: &str) -> egui::text::LayoutJob {
+fn parse_and_layout_text(text_to_parse: &str) -> Vec<egui::text::LayoutJob> {
     #[derive(Default)]
     struct TextSegment {
         text: String,
         color_code: Option<i32>,
-        bold: bool
+        bold: bool,
+        terminates_job: bool,
     }
     
     enum ParseState {
         None,
         Escape,
+        Newline,
     }
 
     let mut cur_segment = TextSegment::default();
@@ -38,12 +40,37 @@ fn parse_and_layout_text(text_to_parse: &str) -> egui::text::LayoutJob {
     for c in text_to_parse.chars() {
         match state {
             ParseState::None => {
-                // if c.is_control() {
-                if c == '\u{1b}' {
-                    state = ParseState::Escape
+                match c {
+                    '\u{1b}' => state = ParseState::Escape,
+                    _ => {
+                        if c == '\n' {
+                            state = ParseState::Newline;
+                        }
+                        
+                        cur_segment.text.push(c) 
+                    },
                 }
-                else {
-                    cur_segment.text.push(c);
+            }
+            ParseState::Newline => {
+                match c {
+                    '\u{1b}' => state = ParseState::Escape,
+                    '\n' => {
+                        if !cur_segment.text.is_empty() {
+                            completed_segments.push(cur_segment);
+                        }
+                        cur_segment = TextSegment::default();
+
+                        completed_segments.push(TextSegment {
+                            terminates_job: true,
+                            ..Default::default()
+                        });
+
+                        state = ParseState::None;
+                    }
+                    _ => {
+                        state = ParseState::None;
+                        cur_segment.text.push(c) 
+                    }
                 }
             }
             // if we find two newlines, break into a new filematch
@@ -114,8 +141,16 @@ fn parse_and_layout_text(text_to_parse: &str) -> egui::text::LayoutJob {
         }
     }
 
+    let mut all_layouts = Vec::new();
     let mut layout_job = egui::text::LayoutJob::default();
     for seg in &completed_segments {
+        if seg.terminates_job {
+            all_layouts.push(layout_job);
+            layout_job = Default::default();
+
+            continue;
+        }
+
         layout_job.append(
             &seg.text, 
             0.0, 
@@ -127,7 +162,11 @@ fn parse_and_layout_text(text_to_parse: &str) -> egui::text::LayoutJob {
         );
     }
 
-    layout_job
+    if !layout_job.is_empty() {
+        all_layouts.push(layout_job);
+    }
+
+    all_layouts
 }
 
 impl App {
@@ -153,7 +192,7 @@ impl App {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let search_res = ui.horizontal(|ui| {
-                let res = ui.text_edit_singleline(&mut self.search_text);
+                let res = ui.text_edit_singleline(&mut self.search_text); 
                 ui.separator();
                 ui.label("Search Text");
                 res
@@ -217,11 +256,13 @@ impl App {
                 self.result_layout = parse_and_layout_text(&result_string);
             }
             else if self.search_text.is_empty() {
-                self.result_layout = egui::text::LayoutJob::default();
+                self.result_layout.clear();
             }
 
             egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.label(self.result_layout.clone());    
+                for layout in &self.result_layout {
+                    ui.selectable_label(false, layout.clone());    
+                }
             });
         });
 
